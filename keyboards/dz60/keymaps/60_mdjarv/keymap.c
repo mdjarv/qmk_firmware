@@ -1,7 +1,19 @@
 #include QMK_KEYBOARD_H
 
-#define HUE 24
-#define SAT 0xFF
+#define RGB_H_TRANSITION_STEP 8
+#define RGB_S_TRANSITION_STEP 10
+
+#define RGB_DEFAULT_HUE 24
+#define RGB_DEFAULT_SATURATION 0xFF
+
+#define RGB_LAYER1_HUE 0
+#define RGB_LAYER1_SATURATION 0
+
+static uint8_t rgb_last_h = RGB_DEFAULT_HUE;
+static uint8_t rgb_last_s = RGB_DEFAULT_SATURATION;
+
+static uint8_t rgb_desired_h = RGB_DEFAULT_HUE;
+static uint8_t rgb_desired_s = RGB_DEFAULT_SATURATION;
 
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
@@ -28,13 +40,12 @@ uint32_t layer_state_set_user(uint32_t state)
   switch (biton32(state))
   {
   case 0:
-    rgblight_sethsv(HUE, SAT, rgblight_get_val());
+    rgb_desired_h = RGB_DEFAULT_HUE;
+    rgb_desired_s = RGB_DEFAULT_SATURATION;
     break;
   case 1:
-    rgblight_sethsv(0, 0, rgblight_get_val());
-    break;
-  default: //  for any other layers, or the default layer
-    rgblight_sethsv(HUE, SAT, rgblight_get_val());
+    rgb_desired_h = RGB_LAYER1_HUE;
+    rgb_desired_s = RGB_LAYER1_SATURATION;
     break;
   }
   return state;
@@ -43,6 +54,48 @@ uint32_t layer_state_set_user(uint32_t state)
 void matrix_init_user(void)
 {
   rgblight_enable();
-  rgblight_sethsv(HUE, SAT, 0xFF);
+  rgblight_sethsv(RGB_DEFAULT_HUE, RGB_DEFAULT_SATURATION, 0xFF);
   rgblight_mode(RGBLIGHT_MODE_STATIC_LIGHT);
+}
+
+static bool rgb_update = false;
+
+int slide_towards(int last, int desired, int step)
+{
+  if (last > desired)
+  {
+    last -= step;
+    if (last < desired)
+      last = desired;
+  }
+  else
+  {
+    last += step;
+    if (last > desired)
+      last = desired;
+  }
+
+
+  return last;
+}
+
+void matrix_scan_user(void)
+{
+  if (rgb_last_h != rgb_desired_h)
+  {
+    rgb_last_h = slide_towards(rgb_last_h, rgb_desired_h, RGB_H_TRANSITION_STEP);
+    rgb_update = true;
+  }
+
+  if (rgb_last_s != rgb_desired_s)
+  {
+    rgb_last_s = slide_towards(rgb_last_s, rgb_desired_s, RGB_S_TRANSITION_STEP);
+    rgb_update = true;
+  }
+
+  if (rgb_update)
+  {
+    rgblight_sethsv(rgb_last_h, rgb_last_s, rgblight_get_val());
+    rgb_update = false;
+  }
 }
