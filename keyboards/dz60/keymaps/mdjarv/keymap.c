@@ -8,8 +8,9 @@
 
 extern rgblight_config_t rgblight_config;
 
-static uint16_t layer0_hue = 65535;
+static uint16_t layer0_hue;
 static uint8_t layer0_sat;
+static uint8_t layer0_mode;
 
 static uint8_t rgb_last_h;
 static uint8_t rgb_last_s;
@@ -30,7 +31,7 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
     LAYOUT_60_ansi(
         KC_GRV, KC_F1, KC_F2, KC_F3, KC_F4, KC_F5, KC_F6, KC_F7, KC_F8, KC_F9, KC_F10, KC_F11, KC_F12, KC_DEL,
-        KC_TRNS, RGB_HUD, RGB_HUI, KC_NO, KC_NO, KC_NO, KC_NO, KC_PGUP, KC_UP, KC_PGDN, KC_NO, KC_NO, KC_NO, KC_NO,
+        KC_TRNS, RGB_HUD, RGB_HUI, RGB_RMOD, RGB_MOD, KC_NO, KC_NO, KC_PGUP, KC_UP, KC_PGDN, KC_NO, KC_NO, KC_NO, KC_NO,
         KC_TRNS, KC_MUTE, KC_VOLD, KC_VOLU, KC_MPLY, KC_NO, KC_HOME, KC_LEFT, KC_DOWN, KC_RGHT, KC_INS, KC_NO, KC_TRNS,
         KC_TRNS, RGB_TOG, RGB_VAD, RGB_VAI, KC_NO, KC_NO, KC_END, KC_NO, KC_NO, KC_NO, KC_NO, KC_TRNS,
         KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS, KC_TRNS)
@@ -44,10 +45,12 @@ uint32_t layer_state_set_user(uint32_t state)
   case 0:
     rgb_desired_h = layer0_hue;
     rgb_desired_s = layer0_sat;
+    rgblight_mode_noeeprom(layer0_mode);
     break;
   case 1:
     rgb_desired_h = RGB_LAYER1_HUE;
     rgb_desired_s = RGB_LAYER1_SATURATION;
+    rgblight_mode_noeeprom(RGBLIGHT_MODE_SNAKE);
     break;
   }
   return state;
@@ -58,10 +61,8 @@ void matrix_init_user(void)
   rgblight_config.raw = eeconfig_read_rgblight();
   layer0_hue = rgblight_config.hue;
   layer0_sat = rgblight_config.sat;
-
+  layer0_mode = rgblight_config.mode;
   rgblight_set();
-  //rgblight_enable();
-  //rgblight_mode(RGBLIGHT_MODE_STATIC_LIGHT);
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record)
@@ -95,6 +96,16 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record)
     rgblight_increase_val();
     rgblight_config.hue = layer0_hue;
     rgblight_config.val = rgblight_get_val();
+    changed = true;
+    break;
+  case RGB_MOD:
+    rgblight_step();
+    layer0_mode = rgblight_get_mode();
+    changed = true;
+    break;
+  case RGB_RMOD:
+    rgblight_step_reverse();
+    layer0_mode = rgblight_get_mode();
     changed = true;
     break;
   }
@@ -143,7 +154,8 @@ void matrix_scan_user(void)
 
   if (rgb_update)
   {
-    rgblight_sethsv_noeeprom(rgb_last_h, rgb_last_s, rgblight_get_val());
+    rgblight_sethsv_noeeprom(rgb_last_h, rgb_last_s, rgblight_config.val);
+    rgblight_set();
     rgb_update = false;
   }
 }
