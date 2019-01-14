@@ -1,27 +1,15 @@
 #include QMK_KEYBOARD_H
-
-#define RGB_H_TRANSITION_STEP 8
-#define RGB_S_TRANSITION_STEP 10
-
-#define RGB_LAYER1_HUE 0
-#define RGB_LAYER1_SATURATION 0
+#include "rgblight.h"
 
 extern rgblight_config_t rgblight_config;
 
-static uint16_t layer0_hue;
-static uint8_t layer0_sat;
-static uint8_t layer0_mode;
+#define DEFAULT_LAYER 0
+#define LAYER_1 1
 
-static uint8_t rgb_last_h;
-static uint8_t rgb_last_s;
+static rgblight_config_t layers[2];
 
-static uint8_t rgb_desired_h;
-static uint8_t rgb_desired_s;
-
-static bool rgb_update = false;
-
+// Keyboard Layout
 const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
-
     LAYOUT_60_ansi(
         KC_ESC, KC_1, KC_2, KC_3, KC_4, KC_5, KC_6, KC_7, KC_8, KC_9, KC_0, KC_MINS, KC_EQL, KC_BSPC,
         KC_TAB, KC_Q, KC_W, KC_E, KC_R, KC_T, KC_Y, KC_U, KC_I, KC_O, KC_P, KC_LBRC, KC_RBRC, KC_BSLS,
@@ -38,31 +26,33 @@ const uint16_t PROGMEM keymaps[][MATRIX_ROWS][MATRIX_COLS] = {
 
 };
 
+void update_layer_1(void)
+{
+  layers[LAYER_1].raw = layers[DEFAULT_LAYER].raw;
+  layers[LAYER_1].mode = RGBLIGHT_MODE_BREATHING + 2;
+  layers[LAYER_1].hue = (layers[LAYER_1].hue + 180) % 360;
+}
+
+// Startup method
+void matrix_init_user(void)
+{
+  layers[DEFAULT_LAYER].raw = eeconfig_read_rgblight();
+
+  update_layer_1();
+  rgblight_set();
+}
+
+// Layer switching
 uint32_t layer_state_set_user(uint32_t state)
 {
   switch (biton32(state))
   {
-  case 0:
-    rgb_desired_h = layer0_hue;
-    rgb_desired_s = layer0_sat;
-    rgblight_mode_noeeprom(layer0_mode);
-    break;
-  case 1:
-    rgb_desired_h = RGB_LAYER1_HUE;
-    rgb_desired_s = RGB_LAYER1_SATURATION;
-    rgblight_mode_noeeprom(RGBLIGHT_MODE_SNAKE);
+  case DEFAULT_LAYER:
+  case LAYER_1:
+    rgblight_update_dword(layers[biton32(state)].raw);
     break;
   }
   return state;
-}
-
-void matrix_init_user(void)
-{
-  rgblight_config.raw = eeconfig_read_rgblight();
-  layer0_hue = rgblight_config.hue;
-  layer0_sat = rgblight_config.sat;
-  layer0_mode = rgblight_config.mode;
-  rgblight_set();
 }
 
 bool process_record_user(uint16_t keycode, keyrecord_t *record)
@@ -77,43 +67,46 @@ bool process_record_user(uint16_t keycode, keyrecord_t *record)
   switch(keycode)
   {
   case RGB_HUD:
-    rgblight_decrease_hue();
-    layer0_hue = rgblight_config.hue = rgblight_get_hue();
+    if (layers[DEFAULT_LAYER].hue - RGBLIGHT_HUE_STEP < 0)
+      layers[DEFAULT_LAYER].hue = (layers[DEFAULT_LAYER].hue + 360 - RGBLIGHT_HUE_STEP) % 360;
+    else
+      layers[DEFAULT_LAYER].hue = (layers[DEFAULT_LAYER].hue - RGBLIGHT_HUE_STEP) % 360;
     changed = true;
     break;
   case RGB_HUI:
-    rgblight_increase_hue();
-    layer0_hue = rgblight_config.hue = rgblight_get_hue();
+    layers[DEFAULT_LAYER].hue = (layers[DEFAULT_LAYER].hue + RGBLIGHT_HUE_STEP) % 360;
     changed = true;
     break;
   case RGB_VAD:
-    rgblight_decrease_val();
-    rgblight_config.hue = layer0_hue;
-    rgblight_config.val = rgblight_get_val();
+    layers[DEFAULT_LAYER].val -= RGBLIGHT_VAL_STEP;
+    if (layers[DEFAULT_LAYER].val < 0)
+      layers[DEFAULT_LAYER].val = 0;
     changed = true;
     break;
   case RGB_VAI:
-    rgblight_increase_val();
-    rgblight_config.hue = layer0_hue;
-    rgblight_config.val = rgblight_get_val();
+    if (layers[DEFAULT_LAYER].val + RGBLIGHT_VAL_STEP <= RGBLIGHT_LIMIT_VAL)
+      layers[DEFAULT_LAYER].val += RGBLIGHT_VAL_STEP;
     changed = true;
     break;
   case RGB_MOD:
-    rgblight_step();
-    layer0_mode = rgblight_get_mode();
+    layers[DEFAULT_LAYER].mode = layers[DEFAULT_LAYER].mode + 1;
+    if (layers[DEFAULT_LAYER].mode > RGBLIGHT_MODES)
+      layers[DEFAULT_LAYER].mode = 1;
     changed = true;
     break;
   case RGB_RMOD:
-    rgblight_step_reverse();
-    layer0_mode = rgblight_get_mode();
+    layers[DEFAULT_LAYER].mode = layers[DEFAULT_LAYER].mode - 1;
+    if (layers[DEFAULT_LAYER].mode < 1)
+      layers[DEFAULT_LAYER].mode = RGBLIGHT_MODES;
     changed = true;
     break;
   }
 
   if (changed) {
-    layer0_sat = rgblight_config.sat = 0xFF;
-    eeconfig_update_rgblight(rgblight_config.raw);
-    rgblight_set();
+    //rgblight_config.raw = layers[DEFAULT_LAYER].raw;
+    update_layer_1();
+    eeconfig_update_rgblight(layers[DEFAULT_LAYER].raw);
+    rgblight_update_dword(layers[DEFAULT_LAYER].raw);
     return false;
   }
   return true;
@@ -138,32 +131,33 @@ int slide_towards(int last, int desired, int step)
   return last;
 }
 
-void matrix_scan_user(void)
-{
-  if (rgb_last_h != rgb_desired_h)
-  {
-    rgb_last_h = slide_towards(rgb_last_h, rgb_desired_h, RGB_H_TRANSITION_STEP);
-    rgb_update = true;
-  }
+// void matrix_scan_user(void)
+// {
+//   if (rgb_last_h != rgb_desired_h)
+//   {
+//     rgb_last_h = slide_towards(rgb_last_h, rgb_desired_h, RGB_H_TRANSITION_STEP);
+//     rgb_update = true;
+//   }
 
-  if (rgb_last_s != rgb_desired_s)
-  {
-    rgb_last_s = slide_towards(rgb_last_s, rgb_desired_s, RGB_S_TRANSITION_STEP);
-    rgb_update = true;
-  }
+//   if (rgb_last_s != rgb_desired_s)
+//   {
+//     rgb_last_s = slide_towards(rgb_last_s, rgb_desired_s, RGB_S_TRANSITION_STEP);
+//     rgb_update = true;
+//   }
 
-  if (rgb_update)
-  {
-    rgblight_sethsv_noeeprom(rgb_last_h, rgb_last_s, rgblight_config.val);
-    rgblight_set();
-    rgb_update = false;
-  }
-}
+//   if (rgb_update)
+//   {
+//     rgblight_sethsv_noeeprom(rgb_last_h, rgb_last_s, rgblight_config.val);
+//     rgblight_set();
+//     rgb_update = false;
+//   }
+// }
 
 void suspend_power_down_user(void)
 {
-  rgblight_config.enable = false;
-  rgblight_set();
+  rgblight_disable_noeeprom();
+  //rgblight_config.enable = false;
+  //rgblight_set();
 }
 
 void suspend_wakeup_init_user(void)
