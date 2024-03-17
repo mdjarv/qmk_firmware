@@ -1,0 +1,43 @@
+{
+    "keyboard": "cradio",
+    "converter": "kb2040",
+    "config": {
+        "features": {
+            "rgb_matrix": true
+        },
+        "rgb_matrix": {
+            "driver": "ws2812",
+            "led_count": 2,
+            "led_process_limit": 2,
+            "split_count": [1, 1],
+            "timeout": 180000
+        },
+        "ws2812": {
+            "driver": "vendor",
+            "pin": 17
+        },
+        "split": {
+            "transport": {
+                "sync": {
+                    "indicators": true,
+                    "layer_state": true,
+                    "matrix_state": true,
+                    "modifiers": true
+                },
+                "watchdog": true
+            },
+            "usb_detect": {
+                "enabled": true
+            }
+        }
+    },
+    "keymap": "filterpaper",
+    "layout": "LAYOUT_34key_w",
+    "layers": [
+        [ "HRM(_BASE)" ],
+        [ "HRM(_COLE)" ],
+        [ "_NUMB" ],
+        [ "_SYMB" ],
+        [ "_FUNC" ]
+    ]
+}

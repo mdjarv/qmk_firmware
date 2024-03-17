@@ -1,0 +1,27 @@
+{
+    "keyboard": "a_dux",
+    "converter": "helios",
+    "config": {
+        "split": {
+            "matrix_pins": {
+                "right": {
+                    "direct": [
+                        ["D3", "B4", "C6", "F4", "F7"],
+                        ["D0", "E6", "D4", "F5", "B1"],
+                        ["B5", "D7", "D2", "F6", "B3"],
+                        ["B6", "B2", null, null, null]
+                    ]
+                }
+            }
+        }
+    },
+    "keymap": "filterpaper",
+    "layout": "LAYOUT_34key_w",
+    "layers": [
+        [ "HRM(_BASE)" ],
+        [ "HRM(_COLE)" ],
+        [ "_NUMB" ],
+        [ "_SYMB" ],
+        [ "_FUNC" ]
+    ]
+}
