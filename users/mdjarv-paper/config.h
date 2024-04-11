@@ -20,6 +20,7 @@
 #   define EE_HANDS
 #   define SPLIT_LAYER_STATE_ENABLE
 #   define SPLIT_LED_STATE_ENABLE
+#   define SPLIT_MODS_ENABLE
 #endif
 
 #ifdef COMBO_ENABLE
